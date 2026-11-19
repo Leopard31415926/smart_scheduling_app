@@ -11,7 +11,7 @@
       "entry": ["src/schemas/*.ts"]
     }
   },
-  "ignore": [".agents/**", "scripts/**"],
+  "ignore": [".agents/**", "scripts/**", "api/**"],
   "ignoreBinaries": ["husky"],
   "ignoreDependencies": ["husky", "lint-staged"],
   "rules": {

@@ -14,7 +14,11 @@ const __dirname = path.dirname(__filename);
 export const ensureDbDirectory = (dbPath: string = config.DB_PATH): void => {
   const dbDir = path.dirname(dbPath);
   if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
+    try {
+      fs.mkdirSync(dbDir, { recursive: true });
+    } catch (err) {
+      console.warn(`[Database] Could not create directory ${dbDir}:`, err);
+    }
   }
 };
 ensureDbDirectory();
@@ -27,11 +31,102 @@ db.exec('PRAGMA foreign_keys = ON;');
 db.exec('PRAGMA synchronous = NORMAL;');
 db.exec('PRAGMA cache_size = -64000;');
 
-// Initialize schema
-const schemaPath = path.resolve(__dirname, 'schema.sql');
-if (fs.existsSync(schemaPath)) {
-  const schemaSql = fs.readFileSync(schemaPath, 'utf8');
+// Initialize schema (search candidate locations with inline fallback for bundled serverless functions)
+const candidateSchemaPaths = [
+  path.resolve(__dirname, 'schema.sql'),
+  path.resolve(__dirname, '../src/db/schema.sql'),
+  path.resolve(__dirname, '../../server/src/db/schema.sql'),
+  path.resolve(process.cwd(), 'server/src/db/schema.sql'),
+  path.resolve(process.cwd(), 'server/dist/db/schema.sql'),
+];
+
+let schemaSql: string | null = null;
+for (const p of candidateSchemaPaths) {
+  if (fs.existsSync(p)) {
+    try {
+      schemaSql = fs.readFileSync(p, 'utf8');
+      break;
+    } catch {
+      // Continue to next candidate
+    }
+  }
+}
+
+if (schemaSql) {
   db.exec(schemaSql);
+} else {
+  // Built-in DDL fallback ensuring tables exist in production serverless environments
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      user_id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT,
+      name TEXT NOT NULL,
+      standing TEXT NOT NULL,
+      major TEXT NOT NULL,
+      minor TEXT,
+      intended_major TEXT,
+      ge_status TEXT,
+      major_requirements_taken TEXT DEFAULT '[]',
+      breaks_preference TEXT DEFAULT '[]',
+      preferences TEXT DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+      session_id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+      token TEXT UNIQUE NOT NULL,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS onboarding_progress (
+      user_id TEXT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+      completed BOOLEAN DEFAULT 0,
+      last_step INTEGER DEFAULT 1,
+      skipped_steps TEXT DEFAULT '[]',
+      draft_answers TEXT DEFAULT '{}',
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS oauth_tokens (
+      user_id TEXT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+      provider TEXT NOT NULL,
+      access_token TEXT NOT NULL,
+      refresh_token TEXT,
+      scope TEXT,
+      expires_at DATETIME,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS conversations (
+      message_id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+      sender TEXT NOT NULL CHECK (sender IN ('USER', 'AGENT', 'SYSTEM')),
+      content TEXT NOT NULL,
+      tool_calls TEXT DEFAULT NULL,
+      metadata TEXT DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS user_calendar_events (
+      event_id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+      course_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      type TEXT NOT NULL,
+      days TEXT NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      credits INTEGER DEFAULT 5,
+      term TEXT NOT NULL,
+      pinned BOOLEAN DEFAULT 0,
+      conflict_badges TEXT DEFAULT '[]',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+    CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_conversations_user_created ON conversations(user_id, created_at ASC);
+    CREATE INDEX IF NOT EXISTS idx_user_calendar_events_user_term ON user_calendar_events(user_id, term);
+  `);
 }
 
 // Runtime migration safeguard: ensure preferences column exists in users table

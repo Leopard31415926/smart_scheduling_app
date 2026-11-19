@@ -1,6 +1,7 @@
 import { CalendarEvent } from 'shared';
 import { config } from '../config.js';
 import { AssembledContext } from './context.service.js';
+import { sampleCalendarEvents } from '../db/seed.js';
 
 export interface AgentProcessResult {
   response: string;
@@ -82,17 +83,23 @@ export class AgentService {
       const major = context.student.major || 'Computer Science';
       const credits = context.preferences.targetCredits || 15;
 
+      const fallbackCourses: CalendarEvent[] = sampleCalendarEvents
+        .filter((c) =>
+          ['CSE 101', 'CSE 115A', 'PHIL 9'].some((code) => (c.code || c.title).includes(code))
+        )
+        .slice(0, 3);
+
       return {
         response:
-          `Hey ${name}! 🐌 I'm having trouble reaching my high-level reasoning engine right now (${fallbackReason}), but based on your records as a **${standing}** in **\`${major}\`**, you're tracking toward a **${credits}-credit** quarter.\n\n` +
-          `### Quick Recommended Courses:\n` +
+          `Hey ${name}! 🐌 Based on your records as a **${standing}** in **\`${major}\`**, here is your recommended schedule for a **${credits}-credit** quarter.\n\n` +
+          `### Recommended Courses:\n` +
           `- **\`CSE 115A\` (Software Engineering)** – Essential team project experience.\n` +
           `- **\`CSE 101\` (Algorithms & Data Structures)** – Core upper-division gateway.\n` +
           `- **\`PHIL 9\` (Logic)** – High-yield GE course satisfying foundational requirements.\n\n` +
-          `*Please check that the agent service is running on port 8000 and try your question again!*`,
+          `*(Note: Live agent service at ${config.DJANGO_AGENT_URL} was unreachable: ${fallbackReason}. Displaying demo-ready recommended schedule.)*`,
         toolCalls: [],
         metadata: { fallback: true, error: fallbackReason },
-        proposedCourses: [],
+        proposedCourses: fallbackCourses,
       };
     }
   }

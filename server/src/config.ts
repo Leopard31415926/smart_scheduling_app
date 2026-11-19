@@ -14,7 +14,9 @@ export const config = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   JWT_SECRET: process.env.JWT_SECRET || 'ucsc-slug-smart-scheduling-secret-key-2026',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
-  DB_PATH: process.env.DB_PATH || path.resolve(__dirname, '../../data/app.db'),
+  DB_PATH:
+    process.env.DB_PATH ||
+    (process.env.VERCEL ? '/tmp/app.db' : path.resolve(__dirname, '../../data/app.db')),
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
   GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5173',
