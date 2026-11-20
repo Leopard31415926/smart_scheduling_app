@@ -32,8 +32,17 @@ app.use('/api/agent', agentRoutes);
 app.use('/api/user_schedule', scheduleRoutes);
 app.use('/api/sync', syncRoutes);
 
+// Direct route aliases for serverless rewrites where /api might be stripped
+app.use('/auth', authRoutes);
+app.use('/users', usersRoutes);
+app.use('/users', progressRoutes);
+app.use('/calendar', calendarRoutes);
+app.use('/agent', agentRoutes);
+app.use('/user_schedule', scheduleRoutes);
+app.use('/sync', syncRoutes);
+
 // Health check
-app.get('/api/health', (_req, res) => {
+app.get(['/api/health', '/health'], (_req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 

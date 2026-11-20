@@ -9,6 +9,9 @@
     "server",
     "client"
   ],
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "node scripts/start-dev.mjs",
     "dev:all": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\" \"npm run dev:agent\"",

@@ -1,6 +1,7 @@
 import { CalendarEvent } from 'shared';
 import { config } from '../config.js';
 import { AssembledContext } from './context.service.js';
+import { sampleCalendarEvents } from '../db/seed.js';
 
 export interface AgentProcessResult {
   response: string;
@@ -80,6 +81,34 @@ export class AgentService {
         ? `Agent request timed out after ${Math.round(timeoutMs / 1000)} seconds`
         : err.message;
 
+      const fallbackCourses: CalendarEvent[] = sampleCalendarEvents
+        .filter((c) =>
+          ['CSE 101', 'CSE 115A', 'PHIL 9'].some((code) => (c.code || c.title).includes(code))
+        )
+        .slice(0, 3);
+
+      // When mock mode or Vercel demo environment is active, return demo-ready schedule recommendations
+      if (useMock || process.env.VERCEL) {
+        const name = context.student.name || 'Slug';
+        const standing = context.student.standing || 'Junior';
+        const major = context.student.major || 'Computer Science';
+        const credits = context.preferences.targetCredits || 15;
+
+        return {
+          response:
+            `Hey ${name}! 🐌 Based on your records as a **${standing}** in **\`${major}\`**, here is your recommended schedule for a **${credits}-credit** quarter.\n\n` +
+            `### Recommended Courses:\n` +
+            `- **\`CSE 115A\` (Software Engineering)** – Essential team project experience.\n` +
+            `- **\`CSE 101\` (Algorithms & Data Structures)** – Core upper-division gateway.\n` +
+            `- **\`PHIL 9\` (Logic)** – High-yield GE course satisfying foundational requirements.\n\n` +
+            `*(Note: Live agent service at ${config.DJANGO_AGENT_URL} was unreachable: ${fallbackReason}. Displaying demo-ready recommended schedule.)*`,
+          toolCalls: [],
+          metadata: { fallback: true, error: fallbackReason },
+          proposedCourses: fallbackCourses,
+        };
+      }
+
+      // Live mode without mock: preserve upstream live agent failure message
       return {
         response:
           `⚠️ **SlugAgent Error**: ${fallbackReason}.\n\n` +
