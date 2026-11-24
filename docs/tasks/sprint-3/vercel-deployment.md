@@ -1,7 +1,7 @@
 ---
 id: vercel-deployment
 assignee: Junyu
-sprint: 4
+sprint: 3
 estimate_hours: 4
 ---
 
