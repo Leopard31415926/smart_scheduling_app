@@ -1,6 +1,6 @@
 
 ---
-id: vercel-deployment
+vercel-deployment
 assignee: Junyu
 sprint: 3
 ---
