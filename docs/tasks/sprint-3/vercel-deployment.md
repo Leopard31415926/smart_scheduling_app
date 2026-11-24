@@ -1,10 +1,4 @@
 
----
-vercel-deployment
-assignee: Junyu
-sprint: 3
----
-
 # Vercel Deployment & Production Integration
 
 ## Description
