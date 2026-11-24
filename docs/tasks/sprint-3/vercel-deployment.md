@@ -1,6 +1,5 @@
 ---
 id: vercel-deployment
-story: TBD
 assignee: Junyu
 sprint: 4
 estimate_hours: 4
